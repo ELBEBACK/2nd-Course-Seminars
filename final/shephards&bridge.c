@@ -1,4 +1,4 @@
-#include "safe-semaphors.h"
+#include "safe-semaphores.h"
 #include <sys/wait.h>
 #include <stdbool.h>
 

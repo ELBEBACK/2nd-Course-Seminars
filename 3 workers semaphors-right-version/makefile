@@ -4,14 +4,14 @@ CC = gcc
 CFLAGS = -Wall -Wextra
 
 NAMEEXE := 3workers-right-answer
-OBJFILES := 3workers-right-answer.o safe-semaphors.o
+OBJFILES := 3workers-right-answer.o safe-semaphores.o
 
 all: $(NAMEEXE)
 
 run: $(NAMEEXE)
 	./$(NAMEEXE) 3 4 5 
 
-$(NAMEEXE) : $(OBJFILES) safe-semaphors.h
+$(NAMEEXE) : $(OBJFILES) safe-semaphores.h
 	$(CC) $(OBJFILES) -o $@ 
 
 %.o : %.c

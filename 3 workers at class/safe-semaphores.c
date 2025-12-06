@@ -1,4 +1,4 @@
-#include "safe-semaphors.h"
+#include "safe-semaphores.h"
 
 pid_t fork_safe(void) {
     pid_t p = fork();
