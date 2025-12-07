@@ -9,6 +9,23 @@ pid_t fork_safe(void) {
     return p;
 }
 
+int Shmget_safe(size_t size) {
+    int shmid = shmget(IPC_PRIVATE, size, IPC_CREAT | 0666);  // IPC_CREAT to create if not exists
+    if (shmid < 0) {
+        perror("shmget fail");
+        exit(EXIT_FAILURE);
+    }
+    return shmid;
+}
+
+void* Shmat_safe(int shmid) {
+    void *shm_ptr = shmat(shmid, NULL, 0);
+    if (shm_ptr == (void *) -1) {
+        perror("shmat fail");
+        exit(EXIT_FAILURE);
+    }
+    return shm_ptr;
+}
 
 int GetVal_safe(int semid, int num_in_sem) {
     
@@ -46,11 +63,6 @@ int create_semaphore(const char* name, int flags) {
         perror("semaphore creation fail\n");
         exit(EXIT_FAILURE);
     }
-
-    SetVal_safe(semid, 0, 2);  // A = 2
-    SetVal_safe(semid, 1, 1);  // B = 1
-    SetVal_safe(semid, 2, 1);  // MUTEX = 1
-    SetVal_safe(semid, 3, 0);  // Ready = 0
   
     printf("Semaphore is created\n");
     return semid;
