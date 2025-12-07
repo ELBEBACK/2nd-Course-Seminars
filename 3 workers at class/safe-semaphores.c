@@ -9,6 +9,23 @@ pid_t fork_safe(void) {
     return p;
 }
 
+int Shmget_safe(size_t size) {
+    int shmid = shmget(IPC_PRIVATE, size, IPC_CREAT | 0666);  // IPC_CREAT to create if not exists
+    if (shmid < 0) {
+        perror("shmget fail");
+        exit(EXIT_FAILURE);
+    }
+    return shmid;
+}
+
+void* Shmat_safe(int shmid) {
+    void *shm_ptr = shmat(shmid, NULL, 0);
+    if (shm_ptr == (void *) -1) {
+        perror("shmat fail");
+        exit(EXIT_FAILURE);
+    }
+    return shm_ptr;
+}
 
 int GetVal_safe(int semid, int num_in_sem) {
     
