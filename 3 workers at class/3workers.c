@@ -2,16 +2,22 @@
 #include <sys/wait.h>
 #include <stdbool.h>
 
+int* Ready = NULL;
+
 void create_workers(int semid);
 void wrench_worker(int semid, int num);
 void screwdriver_worker(int semid, int num);
-void replace_device(int semid);
+void replace_device();
 
 int devices = 1;
 
 // sem_array = | A = 2 | B = 1 | MUTEX = 1 | Ready = 0 |
 int main(void) {
     
+    int shmid = Shmget_safe(sizeof(int));
+    Ready = Shmat_safe(shmid);
+    *Ready = 0;
+
     int semid = create_semaphore("main.c", IPC_CREAT|0644);
   
     create_workers(semid);
@@ -62,11 +68,10 @@ void wrench_worker(int semid, int num) {
         sleep(1); 
     
         
-        int current_ready = GetVal_safe(semid, 3);
-        SetVal_safe(semid, 3, current_ready + 1);
+        *Ready += 1;
     
 
-        if (current_ready + 1 == 3) {
+        if (*Ready + 1 == 3) {
             printf("Wrench worker %d: device completed\n", num);
             replace_device(semid);
         
@@ -104,11 +109,10 @@ void screwdriver_worker(int semid, int num) {
             sleep(1); 
     
             
-            int current_ready = GetVal_safe(semid, 3);
-            SetVal_safe(semid, 3, current_ready + 1);
+            *Ready += 1;
     
             
-            if (current_ready + 1 == 3) {
+            if (*Ready + 1 == 3) {
                 
                 printf("Screwdriver worker %d: device completed\n", num);
                 replace_device(semid);
@@ -125,7 +129,7 @@ void screwdriver_worker(int semid, int num) {
     printf("Screwdriver worker %d finished\n", num);
 }
 
-void replace_device(int semid) {
-    SetVal_safe(semid, 3, 0);  // Ready = 0
+void replace_device() {
+    *Ready = 0;
     printf("-------Device replaced-------\n");
 }

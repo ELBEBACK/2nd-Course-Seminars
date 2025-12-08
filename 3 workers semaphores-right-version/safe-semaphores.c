@@ -67,7 +67,6 @@ int create_semaphore(const char* name, int flags) {
     SetVal_safe(semid, 0, 2);  // A = 2
     SetVal_safe(semid, 1, 1);  // B = 1
     SetVal_safe(semid, 2, 1);  // MUTEX = 1
-    SetVal_safe(semid, 3, 0);  // Ready = 0
 
     printf("Semaphore is created\n");
     return semid;
