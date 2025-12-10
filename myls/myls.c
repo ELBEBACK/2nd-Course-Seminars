@@ -9,15 +9,15 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <sys/stat.h>
-
+#include <time.h>
 
 typedef enum {
-    
+
     SUCCESS         = 0,
     FLAG_COLLISION  = 1,
     UNKNOWN_FLAG    = 2,
 
-}Errorcode;
+} Errorcode;
 
 int opt = 0;
 int recursive_flag = 0;
@@ -29,126 +29,102 @@ struct option long_option[] = {
     {"recursive", no_argument, 0, 'R'},
     {"long", no_argument, 0, 'l'},
     {"all", no_argument, 0, 'a'},
-    //lines to add flags
     {0, 0, 0, 0}
 };
 
 
-Errorcode flag_scan(int argc, char** argv);
-
-int opendir_safe(DIR** d, const char* arg);
-
-
-int main(int argc, char* argv[]) {
-    
-    if (flag_scan(argc, argv) != SUCCESS) {
-        fprintf(stderr, "Flag error encountered! \nFlags for use (one at a time): -f/--force; -v/--verbose; -i/--interactive\n");
-        return EXIT_FAILURE;
-    }
+void print_file_details(const char *path, struct stat *statbuf);
+void list_directory_recursive(const char *dirpath);
 
 
-    if ((argc == 1) || ((argc == 2) && (opt))) {
-        
-        DIR* d;
-        opendir_safe(&d, ".");
-
-        struct dirent* entry;
-        while ((entry = readdir(d)) != NULL) {
-            
-            if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
-                printf("%s ", entry->d_name);
-            }
-            
-        }
-        printf("\n");
-
-        closedir(d);
-
-    } else {
-        int query;
-        if(!opt) {
-            query = 1;
-        } else {
-            query = 2;
-        }
-
-        for ( ; query < argc; query++) {
-
-            DIR* d;
-            opendir_safe(&d, argv[query]);
-            
-            struct dirent* entry;
-            while ((entry = readdir(d)) != NULL) {
-            
-                if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
-                    printf("%s ", entry->d_name);
-                }
-            
-            }
-
-            printf("\n");
-
-            closedir(d);
-
-        }
-
-    }
-
-
-
-
-
-    return SUCCESS;
-}
-
-
-Errorcode flag_scan(int argc, char** argv) {
-    
-    int flag_counter = 0;
-    while ((opt = getopt_long(argc, argv, "Rla", long_option, NULL)) != -1) {
-        
+int main(int argc, char *argv[]) {
+    int opt_index = 0;
+    while ((opt = getopt_long(argc, argv, "Rla", long_option, &opt_index)) != -1) {
         switch (opt) {
             case 'R':
                 recursive_flag = 1;
-                flag_counter++;
                 break;
             case 'l':
                 long_flag = 1;
-                flag_counter++;
                 break;
-            case 'f':
+            case 'a':
                 all_flag = 1;
-                flag_counter++;
                 break;
-            case '?':
-                opt = -1;
-                return UNKNOWN_FLAG;
             default:
-                break;
+                fprintf(stderr, "Usage: %s [-R] [-l] [-a] <directory>\n", argv[0]);
+                exit(UNKNOWN_FLAG);
         }
+    }
 
-        if (flag_counter > 1) return FLAG_COLLISION; //I pb later will add combo's (e.g -a -R) 
-        
+    if (optind < argc) {
+        list_directory_recursive(argv[optind]);
+    } else {
+        fprintf(stderr, "Flag error encountered! \nFlags for use (one at a time): -f/--force; -v/--verbose; -i/--interactive\n");
+        exit(UNKNOWN_FLAG);
     }
-    
-    if (flag_counter == 0) {
-        opt = 1;
-        return SUCCESS;
-    }
-    
-    if (recursive_flag == 1) opt = 'R';
-    if (long_flag == 1) opt = 'l';
-    if (all_flag == 1) opt = 'a';
+
     return SUCCESS;
-
 }
 
 
-int opendir_safe(DIR** d, const char* arg) {
-    *d = opendir(arg);
-    if (*d == NULL) {
-        fprintf(stderr,"Error opening '%s': %s\n", arg, strerror(errno));
-        exit(1);
+void print_file_details(const char *path, struct stat *statbuf) {
+    if (long_flag) {
+        char perms[10];
+        snprintf(perms, sizeof(perms), "%c%c%c%c%c%c%c%c%c",
+                 (statbuf->st_mode & S_IRUSR) ? 'r' : '-',
+                 (statbuf->st_mode & S_IWUSR) ? 'w' : '-',
+                 (statbuf->st_mode & S_IXUSR) ? 'x' : '-',
+                 (statbuf->st_mode & S_IRGRP) ? 'r' : '-',
+                 (statbuf->st_mode & S_IWGRP) ? 'w' : '-',
+                 (statbuf->st_mode & S_IXGRP) ? 'x' : '-',
+                 (statbuf->st_mode & S_IROTH) ? 'r' : '-',
+                 (statbuf->st_mode & S_IWOTH) ? 'w' : '-',
+                 (statbuf->st_mode & S_IXOTH) ? 'x' : '-');
+
+        char time_str[100];
+        struct tm *time_info = localtime(&statbuf->st_mtime);
+        strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", time_info);
+
+        printf("%s %ld %s %s\n", perms, statbuf->st_size, time_str, path);
+    } else {
+        printf("%s\n", path);
     }
-    return SUCCESS;
+}
+
+
+void list_directory_recursive(const char *dirpath) {
+    DIR *dir;
+    struct dirent *entry;
+    struct stat statbuf;
+    char path[1024];
+
+    dir = opendir(dirpath);
+    if (!dir) {
+        perror("opendir");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+
+        if (!all_flag && entry->d_name[0] == '.') {
+            continue;
+        }
+
+        snprintf(path, sizeof(path), "%s/%s", dirpath, entry->d_name);
+
+        if (lstat(path, &statbuf) == -1) {
+            perror("lstat");
+            continue;
+        }
+
+        print_file_details(path, &statbuf);
+
+        if (recursive_flag && S_ISDIR(statbuf.st_mode) && strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+            
+            printf("\n%s:\n", path);
+            list_directory_recursive(path); 
+        }
+    }
+
+    closedir(dir);
 }
